@@ -10,6 +10,8 @@ import { StylesheetLink, CodeMirrorLink, MetaTags } from '../components/Meta'
 import Carbon from '../components/Carbon'
 import { DEFAULT_CODE, DEFAULT_SETTINGS } from '../lib/constants'
 import { getQueryStringState } from '../lib/routing'
+import { escapeHtml } from '../lib/util'
+import api from '../lib/api'
 
 const isInIFrame = morph.get('parent.window.parent')
 const getParent = win => {
@@ -52,11 +54,26 @@ class Embed extends React.Component {
     readOnly: true
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     const { asPath = '' } = this.props.router
-    const { query } = url.parse(asPath, true)
+    const { query, pathname } = url.parse(asPath, true)
+    const path = escapeHtml(pathname.split('/').pop())
     const queryParams = getQueryStringState(query)
     const initialState = Object.keys(queryParams).length ? queryParams : {}
+
+    try {
+      // TODO fix this hack
+      if (api.getGist && path.length >= 19 && path.indexOf('.') === -1) {
+        const { content, language } = await api.getGist(path)
+        if (language) {
+          initialState.language = language.toLowerCase()
+        }
+        initialState.code = content
+      }
+    } catch (e) {
+      // eslint-disable-next-line
+      console.log(e)
+    }
 
     this.setState(
       {
